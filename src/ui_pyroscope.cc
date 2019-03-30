@@ -19,6 +19,7 @@ python -c 'print u"\u22c5 \u22c5\u22c5 \u201d \u2019 \u266f \u2622 \u260d \u2318
 #include "config.h"
 #include "globals.h"
 
+#include <climits>
 #include <cstdio>
 #include <cwchar>
 #include <set>
@@ -42,10 +43,13 @@ python -c 'print u"\u22c5 \u22c5\u22c5 \u201d \u2019 \u266f \u2622 \u260d \u2318
 #include "control.h"
 #include "command_helpers.h"
 
-
+#if (RT_HEX_VERSION <= 0x000906)
 // In 0.9.x this changed to 'tr1', see https://stackoverflow.com/a/4682954/2748717
 // "C++ Technical Report 1" was later added to "C++11", using tr1 makes stuff compile on older GCC
-#define _cxxstd_ std
+#define _cxxstd_ tr1
+#else
+    #define _cxxstd_ std
+#endif
 
 #define D_INFO(item) (item->info())
 #include "rpc/object_storage.h"
@@ -333,7 +337,6 @@ void ui_pyroscope_colormap_init() {
         if ((col[0] != -1 && col[0] >= get_colors()) || (col[1] != -1 && col[1] >= get_colors())) {
             char buf[33];
             sprintf(buf, "%d", get_colors());
-            Canvas::cleanup();
             throw torrent::input_error(col_def + ": your terminal only supports " + buf + " colors.");
         }
 
@@ -747,12 +750,20 @@ int render_columns(bool headers, bool narrow, rpc::target_type target, core::Dow
 
                         switch (attr_idx) {
                             case ps::COL_DOWN_TIME:  // C90/6
+#if RT_HEX_VERSION <= 0x000906
                                 ptr = item->is_done()                   ? c_done :
+#else
+                                ptr = item->data()->is_partially_done() ? c_done :
+#endif
                                       D_INFO(item)->down_rate()->rate() ? c_down : c_part;
                                 continue; // with new color definition
                             case ps::COL_UP_TIME:  // C96/6
                                 ptr = D_INFO(item)->up_rate()->rate()   ? c_seed :
+#if RT_HEX_VERSION <= 0x000906
                                       item->is_done()                   ? c_done : c_part;
+#else
+                                      item->data()->is_partially_done() ? c_done : c_part;
+#endif
                                 continue; // with new color definition
                             case ps::COL_PRIO:
                                 attr_idx = col_idx_prio[std::min(3U, (uint32_t) item->priority())];
@@ -768,10 +779,12 @@ int render_columns(bool headers, bool narrow, rpc::target_type target, core::Dow
                                                        item->file_list()->size_chunks());
                                 break;
                             case ps::COL_ALERT:  // COL_ALARM is the actual color, this is the dynamic one
+                                {
                                 bool has_alert = !item->message().empty()
                                               && item->message().find("Tried all trackers") == std::string::npos;
                                 bool no_data = item->message().find("no data") != std::string::npos;
                                 attr_idx = no_data ? ps::COL_PROGRESS0 : has_alert ? ps::COL_ALARM : ps::COL_INFO;
+                                }
                                 break;
                         }
                     }
@@ -898,7 +911,11 @@ bool ui_pyroscope_download_list_redraw(Window* window, display::Canvas* canvas, 
         char* last = buffer + canvas->width() + 1;
 
         pos = canvas->height() - 2 - network_history_lines;
+#if RT_HEX_VERSION <= 0x000906
+        print_download_info(buffer, last, *view->focus());
+#else
         print_download_info_full(buffer, last, *view->focus());
+#endif
         canvas->print(3, pos, "%s", buffer);
         canvas->set_attr(0, pos, -1, attr_map[ps::COL_LABEL], ps::COL_LABEL);
         print_download_status(buffer, last, *view->focus());
@@ -1330,7 +1347,11 @@ void initialize_command_ui_pyroscope() {
         // "☹ ① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ "
         // "☹ ➊ ➋ ➌ ➍ ➎ ➏ ➐ ➑ ➒ ➓ "
         "method.set_key = ui.column.render, \"930:5C15/3C21/2: ⛁   \","
+#if RT_HEX_VERSION <= 0x000906
         "    ((convert.human_size, ((d.size_bytes)) ))\n"
+#else
+        "    ((convert.human_size, ((d.selected_size_bytes)) ))\n"
+#endif
 
         // Explicitly managed status (✰ = prio; ⚑ = tagged)
         "method.set_key = ui.column.render, \"970:2C91/2:✰ \","

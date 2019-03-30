@@ -46,10 +46,13 @@
 #include "control.h"
 #include "command_helpers.h"
 
-
+#if (RT_HEX_VERSION <= 0x000906)
 // In 0.9.x this changed to 'tr1' (dropping sigc::bind), see https://stackoverflow.com/a/4682954/2748717
 // "C++ Technical Report 1" was later added to "C++11", using tr1 makes stuff compile on older GCC
-#define _cxxstd_ std
+#define _cxxstd_ tr1
+#else
+    #define _cxxstd_ std
+#endif
 
 // List of system capabilities for `system.has` command
 static std::set<std::string> system_capabilities;
@@ -60,7 +63,7 @@ int log_messages_fd = -1;
 };
 
 
-#if RT_HEX_VERSION <= 0x000906
+#if RT_HEX_VERSION <= 0x000908
 // will be merged into 0.9.7+ mainline!
 
 namespace torrent {
@@ -1347,7 +1350,7 @@ void initialize_command_pyroscope() {
     CMD2_ANY("ui.current_view", _cxxstd_::bind(&cmd_ui_current_view));
 #endif
 
-#if RT_HEX_VERSION <= 0x000907
+#if RT_HEX_VERSION <= 0x000908
     // these are merged into 0.9.8+ mainline! (well, maybe, PRs are mostly ignored)
     CMD2_ANY_LIST("system.random", &apply_random);
     CMD2_ANY_LIST("d.multicall.filtered", _cxxstd_::bind(&d_multicall_filtered, _cxxstd_::placeholders::_2));
